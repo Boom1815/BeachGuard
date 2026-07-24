@@ -28,13 +28,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   },
 });
 
-const EMAILJS_SERVICE_ID = 'service_djs6wpa';
-const EMAILJS_TEMPLATE_ID = 'template_3ndgfxc';
-const EMAILJS_PUBLIC_KEY = 'F7tkQbNU4YyrenfVM';
-
-// URL publique du logo, utilisée dans le template EmailJS via la variable {{logo_url}}
-// À adapter si tu choisis un autre nom de bucket / chemin dans Supabase Storage
-const LOGO_URL = 'https://fbhuswayipxafsvbvasz.supabase.co/storage/v1/object/public/beachguard-assets/logo.png';
+// Les identifiants EmailJS (service_id, template_id, clés) ne vivent plus ici :
+// l'envoi passe par la Supabase Edge Function `send-alert-email`, qui les
+// garde côté serveur pour ne plus les exposer dans le bundle de l'app.
 
 const SIRENS = [
   { id: 1, file: require('./assets/sounds/siren-piezo.wav') },
@@ -1068,25 +1064,15 @@ export default function App() {
   };
 
   const sendSingleEmail = async (toEmail, mapsLink, time, photosLink) => {
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'origin': 'http://localhost' },
-      body: JSON.stringify({
-        service_id: EMAILJS_SERVICE_ID,
-        template_id: EMAILJS_TEMPLATE_ID,
-        user_id: EMAILJS_PUBLIC_KEY,
-        template_params: {
-          to_email: toEmail,
-          maps_link: mapsLink || 'Location not yet available',
-          photos_link: photosLink || 'Photos being uploaded...',
-          time: time,
-          name: 'BeachGuard',
-          promo: 'Download BeachGuard Free to receive real-time alerts when your contacts belongings are moved. Available on App Store and Google Play.',
-          logo_url: LOGO_URL,
-        },
-      }),
+    const { error } = await supabase.functions.invoke('send-alert-email', {
+      body: {
+        to_email: toEmail,
+        maps_link: mapsLink,
+        time,
+        photos_link: photosLink,
+      },
     });
-    console.log('Email to', toEmail, ':', response.status);
+    if (error) console.log('Email error for', toEmail, ':', error.message);
   };
 
   const sendEmailAlert = async (mapsLink, photoUrl) => {
