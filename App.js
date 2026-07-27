@@ -105,6 +105,9 @@ const TRANSLATIONS = {
     howTo3: 'Unlock with Face ID or passcode to stop it',
     noPasscodeTitle: 'Passcode required',
     noPasscodeText: 'Set a passcode or Face ID/Touch ID on this phone before using BeachGuard. Without it, the alarm could never be turned off.',
+    photoConsentTitle: 'Before activating',
+    photoConsentText: 'Once activated, this feature automatically takes a photo every 30 seconds for 5 minutes using the front camera, without notifying the person being photographed — including in public places. By activating this feature, you assume full responsibility for its use and for complying with the laws of your country. BeachGuard does not access any of these photos.',
+    photoConsentBtn: 'I understand and agree',
     countdownLabel: 'seconds to unlock',
     settingsTitle: 'Settings',
     sectionContacts: 'ALERT CONTACTS',
@@ -189,6 +192,9 @@ Stay safe!`,
     howTo3: 'Desbloqueie com Face ID ou código para o parar',
     noPasscodeTitle: 'Código necessário',
     noPasscodeText: 'Configure um código ou Face ID/Touch ID neste telemóvel antes de usar o BeachGuard. Sem isso, o alarme nunca poderia ser desativado.',
+    photoConsentTitle: 'Antes de ativar',
+    photoConsentText: 'Uma vez ativada, esta funcionalidade tira automaticamente uma fotografia a cada 30 segundos durante 5 minutos, através da câmara frontal, sem que a pessoa fotografada seja avisada — incluindo na via pública. Ao ativar esta funcionalidade, assume total responsabilidade pela sua utilização e pelo cumprimento da legislação do seu país. A BeachGuard não tem acesso a nenhuma destas fotografias.',
+    photoConsentBtn: 'Compreendo e aceito',
     countdownLabel: 'segundos até desbloquear',
     settingsTitle: 'Definições',
     sectionContacts: 'CONTACTOS DE ALERTA',
@@ -273,6 +279,9 @@ Mantenha-se seguro!`,
     howTo3: 'Desbloquea con Face ID o código para detenerla',
     noPasscodeTitle: 'Código requerido',
     noPasscodeText: 'Configura un código o Face ID/Touch ID en este teléfono antes de usar BeachGuard. Sin ello, la alarma nunca podría desactivarse.',
+    photoConsentTitle: 'Antes de activar',
+    photoConsentText: 'Una vez activada, esta función toma automáticamente una fotografía cada 30 segundos durante 5 minutos mediante la cámara frontal, sin avisar a la persona fotografiada — incluso en la vía pública. Al activar esta función, asumes la responsabilidad total de su uso y del cumplimiento de la legislación de tu país. BeachGuard no accede a ninguna de estas fotografías.',
+    photoConsentBtn: 'Entiendo y acepto',
     countdownLabel: 'segundos para desbloquear',
     settingsTitle: 'Ajustes',
     sectionContacts: 'CONTACTOS DE ALERTA',
@@ -357,6 +366,9 @@ Descarga BeachGuard Free: https://beachguard.app
     howTo3: "Déverrouillez avec Face ID ou le code pour l'arrêter",
     noPasscodeTitle: 'Code de verrouillage requis',
     noPasscodeText: "Configurez un code ou Face ID/Touch ID sur ce téléphone avant d'utiliser BeachGuard. Sans cela, l'alarme ne pourrait jamais être désactivée.",
+    photoConsentTitle: "Avant d'activer",
+    photoConsentText: "Une fois activée, cette fonction photographie automatiquement toutes les 30 secondes pendant 5 minutes via la caméra avant, sans que la personne photographiée en soit avertie — y compris sur la voie publique. En activant cette fonction, vous assumez l'entière responsabilité de son usage et de sa conformité avec la législation de votre pays. BeachGuard n'accède à aucune de ces photos.",
+    photoConsentBtn: "J'ai compris et j'accepte",
     countdownLabel: 'secondes avant déverrouillage',
     settingsTitle: 'Réglages',
     sectionContacts: "CONTACTS D'ALERTE",
@@ -441,6 +453,9 @@ Restez en sécurité !`,
     howTo3: 'Mit Face ID oder Code entsperren, um ihn zu stoppen',
     noPasscodeTitle: 'Code erforderlich',
     noPasscodeText: 'Richten Sie einen Code oder Face ID/Touch ID auf diesem Telefon ein, bevor Sie BeachGuard verwenden. Andernfalls könnte der Alarm nie deaktiviert werden.',
+    photoConsentTitle: 'Vor der Aktivierung',
+    photoConsentText: 'Nach der Aktivierung nimmt diese Funktion automatisch alle 30 Sekunden für 5 Minuten ein Foto über die Frontkamera auf, ohne dass die fotografierte Person darüber informiert wird — auch im öffentlichen Raum. Mit der Aktivierung dieser Funktion übernehmen Sie die volle Verantwortung für deren Nutzung und für die Einhaltung der Gesetze Ihres Landes. BeachGuard hat keinen Zugriff auf diese Fotos.',
+    photoConsentBtn: 'Verstanden und akzeptiert',
     countdownLabel: 'Sekunden bis zur Entsperrung',
     settingsTitle: 'Einstellungen',
     sectionContacts: 'ALARMKONTAKTE',
@@ -525,6 +540,9 @@ Bleib sicher!`,
     howTo3: 'Ontgrendel met Face ID of code om te stoppen',
     noPasscodeTitle: 'Toegangscode vereist',
     noPasscodeText: 'Stel een toegangscode of Face ID/Touch ID in op deze telefoon voordat je BeachGuard gebruikt. Anders kan het alarm nooit worden uitgeschakeld.',
+    photoConsentTitle: 'Voor het activeren',
+    photoConsentText: "Eenmaal geactiveerd, maakt deze functie automatisch elke 30 seconden gedurende 5 minuten een foto via de frontcamera, zonder dat de gefotografeerde persoon hiervan op de hoogte wordt gebracht — ook op de openbare weg. Door deze functie te activeren, aanvaardt u de volledige verantwoordelijkheid voor het gebruik ervan en voor de naleving van de wetgeving van uw land. BeachGuard heeft geen toegang tot deze foto's.",
+    photoConsentBtn: 'Ik begrijp het en ga akkoord',
     countdownLabel: 'seconden tot ontgrendeling',
     settingsTitle: 'Instellingen',
     sectionContacts: 'ALARMCONTACTEN',
@@ -895,6 +913,38 @@ function PhoneAuthScreen({ t }) {
   );
 }
 
+// Écran plein écran, non fermable, affiché une seule fois avant la toute
+// première activation (même principe que PhoneAuthScreen : tant qu'il est
+// retourné ici, aucun autre écran de l'app n'est atteignable).
+function PhotoConsentScreen({ t, onAccept }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleAccept = async () => {
+    setLoading(true);
+    await onAccept();
+    setLoading(false);
+  };
+
+  return (
+    <View style={pc.screen}>
+      <ScrollView contentContainerStyle={pc.scrollContent}>
+        <Text style={au.title}>{t.photoConsentTitle}</Text>
+        <Text style={pc.text}>{t.photoConsentText}</Text>
+      </ScrollView>
+      <TouchableOpacity style={[au.btn, pc.btn, loading && au.btnDisabled]} onPress={handleAccept} disabled={loading}>
+        {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={au.btnText}>{t.photoConsentBtn}</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const pc = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#0a1628', paddingTop: 80, paddingBottom: 28, paddingHorizontal: 28 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', gap: 14 },
+  text: { fontSize: 15, color: '#dbe3f0', lineHeight: 22, textAlign: 'left' },
+  btn: { marginTop: 20 },
+});
+
 const au = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0a1628', alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 },
   title: { fontSize: 26, fontWeight: '700', color: '#ffffff', textAlign: 'center', marginBottom: 4 },
@@ -935,6 +985,8 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [noPasscode, setNoPasscode] = useState(false);
+  // null = pas encore vérifié, false = refusé/non répondu, true = accepté
+  const [photoConsentGiven, setPhotoConsentGiven] = useState(null);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
   const countdownRef = useRef(null);
@@ -978,6 +1030,32 @@ export default function App() {
   useEffect(() => {
     if (session?.user?.id) loadContacts();
   }, [session]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('photo_consent_accepted_at')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        setPhotoConsentGiven(!!data?.photo_consent_accepted_at);
+      } catch (e) {
+        setPhotoConsentGiven(false);
+      }
+    })();
+  }, [session]);
+
+  const acceptPhotoConsent = async () => {
+    try {
+      await supabase
+        .from('profiles')
+        .update({ photo_consent_accepted_at: new Date().toISOString() })
+        .eq('id', session.user.id);
+      setPhotoConsentGiven(true);
+    } catch (e) {}
+  };
 
   useEffect(() => {
     loadVoicesForLanguage(language);
@@ -1188,16 +1266,18 @@ export default function App() {
       // Pas d'URL signée générée ici : le rapport d'incident (incident-report)
       // regénère ses propres URLs signées à la demande, à partir du dossier
       // de stockage `${id}/` — voir supabase/functions/incident-report.
-      await supabase.storage.from('beachguard-photos').upload(filename, blob, { contentType: 'image/jpeg', upsert: false });
-    } catch (e) {}
+      const { error } = await supabase.storage.from('beachguard-photos').upload(filename, blob, { contentType: 'image/jpeg', upsert: false });
+      if (error) console.log('uploadPhoto error:', error.message);
+      else console.log('uploadPhoto OK:', filename);
+    } catch (e) { console.log('uploadPhoto exception:', String(e)); }
   };
 
   const takePhotos = async (id) => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current) { console.log('takePhotos: cameraRef not ready'); return; }
     try {
       const front = await cameraRef.current.takePictureAsync({ quality: 0.5 });
       await uploadPhoto(front.uri, 'front', id);
-    } catch (e) {}
+    } catch (e) { console.log('takePhotos exception:', String(e)); }
   };
 
   const startPhotoSession = (id) => {
@@ -1283,7 +1363,7 @@ export default function App() {
   };
 
   const arm = () => {
-    if (noPasscode) return; // Sécurité : jamais armer si aucun désarmement n'est possible
+    if (noPasscode || photoConsentGiven !== true) return; // Sécurité : jamais armer sans désarmement possible ni consentement photo
     setTimeout(() => setArmed(true), 3000);
   };
 
@@ -1321,6 +1401,18 @@ export default function App() {
 
   if (!session) {
     return <PhoneAuthScreen t={t} />;
+  }
+
+  if (photoConsentGiven === null) {
+    return (
+      <View style={[s.darkScreen, { gap: 0 }]}>
+        <ActivityIndicator size="large" color="#7ab8ff" />
+      </View>
+    );
+  }
+
+  if (photoConsentGiven === false) {
+    return <PhotoConsentScreen t={t} onAccept={acceptPhotoConsent} />;
   }
 
   if (alarmActive) {
