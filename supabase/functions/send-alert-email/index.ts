@@ -68,6 +68,9 @@ Deno.serve(async (req) => {
       const token = await signReportToken(incident_id, REPORT_SIGNING_SECRET, REPORT_TTL_SECONDS);
       photosLink = `${SUPABASE_URL}/functions/v1/incident-report?token=${token}`;
     }
+    // Log temporaire pour retrouver facilement le lien de test dans l'onglet
+    // "Logs" du dashboard (le corps de réponse JSON n'y est pas affiché).
+    console.log('report_link:', photosLink);
 
     const emailjsResponse = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
       method: 'POST',
@@ -99,6 +102,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
+    console.log('send-alert-email error:', String(e));
     return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
