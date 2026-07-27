@@ -16,6 +16,7 @@ import Slider from '@react-native-community/slider';
 import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
 import * as Contacts from 'expo-contacts';
+import * as Speech from 'expo-speech';
 
 const SUPABASE_URL = 'https://fbhuswayipxafsvbvasz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nmeJNjoW4VbQKchifKnEWQ_iUqAhz9B';
@@ -56,6 +57,8 @@ const LANGUAGES = [
   { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
   { code: 'nl', label: 'Nederlands', flag: '🇳🇱' },
 ];
+
+const SPEECH_LOCALES = { en: 'en-US', pt: 'pt-PT', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', nl: 'nl-NL' };
 
 const TRANSLATIONS = {
   en: {
@@ -138,6 +141,7 @@ Download BeachGuard Free: https://beachguard.app
 
 Stay safe!`,
     sirenNames: ['Piezo Alarm', 'Warning Loop', 'Facility Siren', 'Reverb Warning', 'Fire Truck', 'Police Siren', 'Police Siren US', 'Burglar Alarm', 'Sci-Fi Alert', 'Signal Alert', 'Club Alarm', 'Police Operation'],
+    deterrentMessage: 'This phone is protected and being tracked. Put it down now.',
   },
   pt: {
     activateLabel: 'Deslize para ATIVAR',
@@ -219,6 +223,7 @@ Descarregue o BeachGuard Free: https://beachguard.app
 
 Mantenha-se seguro!`,
     sirenNames: ['Alarme Piezo', 'Alarme em ciclo', 'Sirene de instalação', 'Alerta com reverberação', 'Camião de bombeiros', 'Sirene da polícia', 'Sirene da polícia EUA', 'Alarme antirroubo', 'Alerta de ficção científica', 'Sinal de alerta', 'Alarme de discoteca', 'Operação policial'],
+    deterrentMessage: 'Este telemóvel está protegido e a ser localizado. Larga-o já.',
   },
   es: {
     activateLabel: 'Desliza para ACTIVAR',
@@ -300,6 +305,7 @@ Descarga BeachGuard Free: https://beachguard.app
 
 ¡Mantente a salvo!`,
     sirenNames: ['Alarma Piezo', 'Alarma en bucle', 'Sirena de instalación', 'Alerta con reverberación', 'Camión de bomberos', 'Sirena de policía', 'Sirena de policía US', 'Alarma antirrobo', 'Alerta de ciencia ficción', 'Señal de alerta', 'Alarma de discoteca', 'Operación policial'],
+    deterrentMessage: 'Este teléfono está protegido y localizado. Suéltalo ahora mismo.',
   },
   fr: {
     activateLabel: 'Glissez pour ACTIVER',
@@ -381,6 +387,7 @@ Téléchargez BeachGuard Free : https://beachguard.app
 
 Restez en sécurité !`,
     sirenNames: ['Alarme Piezo', 'Alarme en boucle', "Sirène d'installation", 'Alerte avec réverbération', 'Camion de pompiers', 'Sirène de police', 'Sirène de police US', 'Alarme anti-effraction', 'Alerte science-fiction', "Signal d'alerte", 'Alarme de boîte de nuit', 'Opération de police'],
+    deterrentMessage: 'Ce téléphone est protégé et localisé. Reposez-le immédiatement.',
   },
   de: {
     activateLabel: 'Wischen zum AKTIVIEREN',
@@ -462,6 +469,7 @@ Lade BeachGuard Free herunter: https://beachguard.app
 
 Bleib sicher!`,
     sirenNames: ['Piezo-Alarm', 'Warnschleife', 'Anlagensirene', 'Hall-Warnung', 'Feuerwehrsirene', 'Polizeisirene', 'US-Polizeisirene', 'Einbruchalarm', 'Sci-Fi-Alarm', 'Signalton', 'Club-Alarm', 'Polizeieinsatz'],
+    deterrentMessage: 'Dieses Telefon ist geschützt und wird geortet. Leg es sofort zurück.',
   },
   nl: {
     activateLabel: 'Schuif om te ACTIVEREN',
@@ -543,6 +551,7 @@ Download BeachGuard Free: https://beachguard.app
 
 Blijf veilig!`,
     sirenNames: ['Piëzo-alarm', 'Waarschuwingslus', 'Faciliteitssirene', 'Galm-waarschuwing', 'Brandweersirene', 'Politiesirene', 'Politiesirene VS', 'Inbraakalarm', 'Sci-fi-alarm', 'Signaalalarm', 'Clubalarm', 'Politieoperatie'],
+    deterrentMessage: 'Deze telefoon is beveiligd en wordt gevolgd. Leg hem nu meteen neer.',
   },
 };
 
@@ -1063,6 +1072,12 @@ export default function App() {
     } catch (e) {}
   };
 
+  const speakDeterrentMessage = () => {
+    try {
+      Speech.speak(t.deterrentMessage, { language: SPEECH_LOCALES[language] || 'en-US', rate: 0.95 });
+    } catch (e) {}
+  };
+
   const sendSingleEmail = async (toEmail, mapsLink, time, photosLink) => {
     const { error } = await supabase.functions.invoke('send-alert-email', {
       body: {
@@ -1152,6 +1167,7 @@ export default function App() {
     setCounting(true);
     setCountdown(countdownDuration);
     Vibration.vibrate([0, 200, 100, 200], true);
+    speakDeterrentMessage();
     playBeep();
     let count = countdownDuration;
     countdownRef.current = setInterval(() => {
