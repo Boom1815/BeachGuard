@@ -60,6 +60,20 @@ const LANGUAGES = [
 
 const SPEECH_LOCALES = { en: 'en-US', pt: 'pt-PT', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', nl: 'nl-NL' };
 
+// Voix retenues pour le message dissuasif, par langue. Certains noms (ex. "Eddy")
+// existent sur plusieurs langues à la fois : on les distingue via le préfixe de
+// langue de la voix (v.language), jamais par le nom seul.
+const DETERRENT_VOICE_NAMES = {
+  en: ['Karen', 'Moira', 'Samantha', 'Zarvox'],
+  pt: ['Joana', 'Luciana'],
+  es: ['Monica', 'Paulina', 'Eddy'],
+  fr: ['Amélie', 'Thomas'],
+  de: ['Anna', 'Eddy'],
+  nl: ['Ellen', 'Xander'],
+};
+
+const normalizeVoiceName = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 const TRANSLATIONS = {
   en: {
     activateLabel: 'Slide to ACTIVATE',
@@ -998,9 +1012,12 @@ export default function App() {
     try {
       const all = await Speech.getAvailableVoicesAsync();
       const localePrefix = (SPEECH_LOCALES[lang] || 'en-US').split('-')[0];
-      const forLang = all.filter(v => v.language && v.language.toLowerCase().startsWith(localePrefix));
-      const maleVoices = forLang.filter(v => v.gender === 'male');
-      setAvailableVoices(maleVoices.length > 0 ? maleVoices : forLang);
+      const allowedNames = (DETERRENT_VOICE_NAMES[lang] || []).map(normalizeVoiceName);
+      const filtered = all.filter(v =>
+        v.language && v.language.toLowerCase().startsWith(localePrefix) &&
+        v.name && allowedNames.includes(normalizeVoiceName(v.name))
+      );
+      setAvailableVoices(filtered);
     } catch (e) {
       setAvailableVoices([]);
     }
