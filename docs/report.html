@@ -7,8 +7,9 @@
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1424; margin: 0; padding: 24px; min-height: 100vh; box-sizing: border-box; }
   .sheet { max-width: 700px; margin: 0 auto; background: #fff; color: #16213a; border-radius: 12px; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
+  .logo { display: block; max-width: 180px; margin: 0 auto 20px; }
+  h1 { font-size: 20px; margin: 0 0 4px; text-align: center; }
+  .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; text-align: center; }
   .field { margin-bottom: 16px; }
   .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 4px; }
   .value { font-size: 16px; }
@@ -51,6 +52,7 @@
       const root = document.getElementById('root');
       root.innerHTML = '';
       root.appendChild(el('div', { class: 'error-wrap' }, [
+        el('img', { class: 'logo', src: 'logo.png', alt: 'BeachGuard' }),
         el('h1', { text: '⚠️ ' + message }),
       ]));
     }
@@ -74,7 +76,8 @@
       mapsLink.textContent = data.lat.toFixed(6) + ', ' + data.lng.toFixed(6) + ' — Voir sur Google Maps';
 
       const sheet = el('div', { class: 'sheet' }, [
-        el('h1', { text: '🛡️ BeachGuard — Rapport d\'incident' }),
+        el('img', { class: 'logo', src: 'logo.png', alt: 'BeachGuard' }),
+        el('h1', { text: 'Rapport d\'incident' }),
         el('div', { class: 'subtitle', text: 'Généré automatiquement par l\'application BeachGuard' }),
         el('div', { class: 'field' }, [
           el('div', { class: 'label', text: 'Horodatage' }),
