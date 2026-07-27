@@ -1,10 +1,17 @@
 // Edge Function: send-alert-email
-// Reçoit { to_email, maps_link, time, photos_link } depuis l'app (utilisateur authentifié),
-// et relaie l'envoi à EmailJS en utilisant les identifiants stockés côté serveur
-// (jamais exposés au bundle client). Remplace l'appel direct à api.emailjs.com
-// qui exposait service_id/template_id/public_key en dur dans App.js.
+// Reçoit { to_email, maps_link, time, incident_id } depuis l'app (utilisateur
+// authentifié), et relaie l'envoi à EmailJS en utilisant les identifiants
+// stockés côté serveur (jamais exposés au bundle client). Remplace l'appel
+// direct à api.emailjs.com qui exposait service_id/template_id/public_key en
+// dur dans App.js.
+//
+// Le champ `photos_link` envoyé à EmailJS n'est plus une URL signée pointant
+// directement vers la photo brute : c'est un lien vers la page de rapport
+// (incident-report), protégé par un token signé propre à cet incident,
+// généré ici — jamais côté client.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { signReportToken } from '../_shared/report-token.ts';
 
 const EMAILJS_SERVICE_ID = Deno.env.get('EMAILJS_SERVICE_ID')!;
 const EMAILJS_TEMPLATE_ID = Deno.env.get('EMAILJS_TEMPLATE_ID')!;
@@ -15,6 +22,12 @@ const LOGO_URL = Deno.env.get('LOGO_URL')
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+const REPORT_SIGNING_SECRET = Deno.env.get('REPORT_SIGNING_SECRET')!;
+
+// Le rapport reste consultable un peu au-delà des 15 jours de rétention des
+// photos (cleanup-old-incidents) : la page affiche alors position + horaire
+// sans photos, plutôt qu'un lien mort.
+const REPORT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,12 +55,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { to_email, maps_link, time, photos_link } = await req.json();
+    const { to_email, maps_link, time, incident_id } = await req.json();
     if (!to_email || typeof to_email !== 'string') {
       return new Response(JSON.stringify({ error: 'to_email is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    let photosLink = 'Photos being uploaded...';
+    if (incident_id && typeof incident_id === 'string') {
+      const token = await signReportToken(incident_id, REPORT_SIGNING_SECRET, REPORT_TTL_SECONDS);
+      photosLink = `${SUPABASE_URL}/functions/v1/incident-report?token=${token}`;
     }
 
     const emailjsResponse = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
@@ -61,7 +80,7 @@ Deno.serve(async (req) => {
         template_params: {
           to_email,
           maps_link: maps_link || 'Location not yet available',
-          photos_link: photos_link || 'Photos being uploaded...',
+          photos_link: photosLink,
           time: time || new Date().toLocaleString('en-GB'),
           name: 'BeachGuard',
           promo: 'Download BeachGuard Free to receive real-time alerts when your contacts belongings are moved. Available on App Store and Google Play.',

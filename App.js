@@ -1144,23 +1144,23 @@ export default function App() {
     } catch (e) {}
   };
 
-  const sendSingleEmail = async (toEmail, mapsLink, time, photosLink) => {
+  const sendSingleEmail = async (toEmail, mapsLink, time, incidentId) => {
     const { error } = await supabase.functions.invoke('send-alert-email', {
       body: {
         to_email: toEmail,
         maps_link: mapsLink,
         time,
-        photos_link: photosLink,
+        incident_id: incidentId,
       },
     });
     if (error) console.log('Email error for', toEmail, ':', error.message);
   };
 
-  const sendEmailAlert = async (mapsLink, photoUrl) => {
+  const sendEmailAlert = async (mapsLink, incidentId) => {
     const time = new Date().toLocaleString('en-GB');
     try {
-      if (alertEmail) await sendSingleEmail(alertEmail, mapsLink, time, photoUrl);
-      if (alertEmail2) await sendSingleEmail(alertEmail2, mapsLink, time, photoUrl);
+      if (alertEmail) await sendSingleEmail(alertEmail, mapsLink, time, incidentId);
+      if (alertEmail2) await sendSingleEmail(alertEmail2, mapsLink, time, incidentId);
     } catch (e) { console.log('Email error:', e); }
   };
 
@@ -1185,34 +1185,34 @@ export default function App() {
       const response = await fetch(uri);
       const blob = await response.blob();
       const filename = `${id}/${type}_${Date.now()}.jpg`;
+      // Pas d'URL signée générée ici : le rapport d'incident (incident-report)
+      // regénère ses propres URLs signées à la demande, à partir du dossier
+      // de stockage `${id}/` — voir supabase/functions/incident-report.
       await supabase.storage.from('beachguard-photos').upload(filename, blob, { contentType: 'image/jpeg', upsert: false });
-      const { data } = await supabase.storage.from('beachguard-photos').createSignedUrl(filename, 604800);
-      return data?.signedUrl || null;
-    } catch (e) { return null; }
+    } catch (e) {}
   };
 
   const takePhotos = async (id) => {
-    if (!cameraRef.current) return null;
+    if (!cameraRef.current) return;
     try {
       const front = await cameraRef.current.takePictureAsync({ quality: 0.5 });
-      return await uploadPhoto(front.uri, 'front', id);
-    } catch (e) { return null; }
+      await uploadPhoto(front.uri, 'front', id);
+    } catch (e) {}
   };
 
-  const startPhotoSession = async (id) => {
-    const firstUrl = await takePhotos(id);
+  const startPhotoSession = (id) => {
+    takePhotos(id);
     photoIntervalRef.current = setInterval(() => takePhotos(id), PHOTO_INTERVAL);
     photoTimeoutRef.current = setTimeout(() => clearInterval(photoIntervalRef.current), PHOTO_DURATION);
-    return firstUrl;
   };
 
-  const startLocationTracking = async (id, photoUrl) => {
+  const startLocationTracking = async (id) => {
     try {
       const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude: lat, longitude: lng } = current.coords;
       const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
       await supabase.from('incidents').upsert({ id, lat, lng, user_id: session.user.id, updated_at: new Date().toISOString() });
-      sendEmailAlert(mapsLink, photoUrl);
+      sendEmailAlert(mapsLink, id);
       locationWatchRef.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, timeInterval: 30000, distanceInterval: 10 },
         async (loc) => {
@@ -1220,7 +1220,7 @@ export default function App() {
           await supabase.from('incidents').upsert({ id, lat: lat2, lng: lng2, user_id: session.user.id, updated_at: new Date().toISOString() });
         }
       );
-    } catch (e) { sendEmailAlert(null, photoUrl); }
+    } catch (e) { sendEmailAlert(null, id); }
   };
 
   const stopTracking = () => {
@@ -1250,8 +1250,8 @@ export default function App() {
     Vibration.vibrate([0, 500, 200, 500], true);
     playSound(null, true);
     const id = `incident_${Date.now()}`;
-    const photoUrl = await startPhotoSession(id);
-    startLocationTracking(id, photoUrl);
+    startPhotoSession(id);
+    startLocationTracking(id);
   };
 
   const unlock = async () => {
