@@ -931,11 +931,17 @@ function PhoneAuthScreen({ t }) {
 // retourné ici, aucun autre écran de l'app n'est atteignable).
 function PhotoConsentScreen({ t, onAccept }) {
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleAccept = async () => {
+    setErrorMsg('');
     setLoading(true);
-    await onAccept();
+    const success = await onAccept();
     setLoading(false);
+    // Si success est false, on ne fait RIEN d'autre : l'écran reste affiché,
+    // le consentement n'est pas considéré comme donné tant que l'écriture
+    // en base n'a pas réellement réussi (échec fermé).
+    if (!success) setErrorMsg(t.authGenericError);
   };
 
   return (
@@ -943,6 +949,7 @@ function PhotoConsentScreen({ t, onAccept }) {
       <ScrollView contentContainerStyle={pc.scrollContent}>
         <Text style={au.title}>{t.photoConsentTitle}</Text>
         <Text style={pc.text}>{t.photoConsentText}</Text>
+        {!!errorMsg && <Text style={au.error}>{errorMsg}</Text>}
       </ScrollView>
       <TouchableOpacity style={[au.btn, pc.btn, loading && au.btnDisabled]} onPress={handleAccept} disabled={loading}>
         {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={au.btnText}>{t.photoConsentBtn}</Text>}
@@ -1065,13 +1072,17 @@ export default function App() {
   const acceptPhotoConsent = async () => {
     try {
       const now = new Date().toISOString();
-      await supabase
+      const { error } = await supabase
         .from('profiles')
         .update({ photo_consent_accepted_at: now })
         .eq('id', session.user.id);
+      if (error) return false;
       setPhotoConsentDate(now);
       setPhotoConsentGiven(true);
-    } catch (e) {}
+      return true;
+    } catch (e) {
+      return false;
+    }
   };
 
   useEffect(() => {

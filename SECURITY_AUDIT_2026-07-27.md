@@ -222,6 +222,11 @@ réellement en base malgré l'usage effectif de la fonction photo.
 à jour l'état local — afficher une erreur et laisser la modale bloquante
 active.
 
+**✅ Corrigé le 27/07/2026** : `acceptPhotoConsent` lit désormais `error`
+et ne bascule l'état local que si l'écriture a réellement réussi ; sinon
+elle retourne `false` et `PhotoConsentScreen` affiche un message d'erreur
+en gardant la modale bloquante active.
+
 ---
 
 ## 🟠 9 — Confidentialité du bucket `beachguard-photos` non vérifiable
