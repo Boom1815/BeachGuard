@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BeachGuard — Rapport d'incident</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1424; margin: 0; padding: 24px; min-height: 100vh; box-sizing: border-box; }
+  .sheet { max-width: 700px; margin: 0 auto; background: #fff; color: #16213a; border-radius: 12px; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
+  .field { margin-bottom: 16px; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 4px; }
+  .value { font-size: 16px; }
+  .value a { color: #1a73e8; }
+  .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
+  .photos img { width: 100%; border-radius: 8px; display: block; }
+  .hint { color: #888; font-size: 14px; font-style: italic; }
+  .print-btn { margin-top: 24px; padding: 10px 20px; background: #1a2540; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  .error-wrap { max-width: 480px; margin: 15vh auto; text-align: center; color: #fff; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { box-shadow: none; }
+    .print-btn { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div id="root">
+    <div class="error-wrap"><h1>Chargement…</h1></div>
+  </div>
+
+  <script>
+    // Cette page est statique (GitHub Pages) : elle va chercher les données
+    // de l'incident via l'Edge Function incident-report (JSON), puisque
+    // Supabase force le Content-Type des réponses HTML vers text/plain sur
+    // le domaine partagé *.supabase.co (mesure anti-abus côté plateforme).
+    const API_URL = 'https://fbhuswayipxafsvbvasz.supabase.co/functions/v1/incident-report';
+
+    function el(tag, props, children) {
+      const node = document.createElement(tag);
+      if (props) for (const k in props) {
+        if (k === 'text') node.textContent = props[k];
+        else node.setAttribute(k, props[k]);
+      }
+      (children || []).forEach((c) => node.appendChild(c));
+      return node;
+    }
+
+    function showError(message) {
+      const root = document.getElementById('root');
+      root.innerHTML = '';
+      root.appendChild(el('div', { class: 'error-wrap' }, [
+        el('h1', { text: '⚠️ ' + message }),
+      ]));
+    }
+
+    function showReport(data) {
+      const root = document.getElementById('root');
+      root.innerHTML = '';
+
+      const timeLabel = new Date(data.timestamp).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'medium' });
+
+      const photosField = el('div', { class: 'photos' });
+      if (data.photos && data.photos.length > 0) {
+        data.photos.forEach((url) => {
+          photosField.appendChild(el('img', { src: url, alt: "Photo de l'incident" }));
+        });
+      } else {
+        photosField.appendChild(el('p', { class: 'hint', text: 'Aucune photo disponible — les photos sont automatiquement supprimées 15 jours après l\'incident.' }));
+      }
+
+      const mapsLink = el('a', { href: data.maps_link, target: '_blank', rel: 'noopener' });
+      mapsLink.textContent = data.lat.toFixed(6) + ', ' + data.lng.toFixed(6) + ' — Voir sur Google Maps';
+
+      const sheet = el('div', { class: 'sheet' }, [
+        el('h1', { text: '🛡️ BeachGuard — Rapport d\'incident' }),
+        el('div', { class: 'subtitle', text: 'Généré automatiquement par l\'application BeachGuard' }),
+        el('div', { class: 'field' }, [
+          el('div', { class: 'label', text: 'Horodatage' }),
+          el('div', { class: 'value', text: timeLabel }),
+        ]),
+        el('div', { class: 'field' }, [
+          el('div', { class: 'label', text: 'Localisation' }),
+          el('div', { class: 'value' }, [mapsLink]),
+        ]),
+        el('div', { class: 'field' }, [
+          el('div', { class: 'label', text: 'Photos' }),
+          photosField,
+        ]),
+      ]);
+
+      const printBtn = el('button', { class: 'print-btn', text: 'Imprimer / Enregistrer en PDF' });
+      printBtn.addEventListener('click', () => window.print());
+      sheet.appendChild(printBtn);
+
+      root.appendChild(sheet);
+    }
+
+    async function load() {
+      const token = new URLSearchParams(window.location.search).get('token');
+      if (!token) { showError('Lien invalide.'); return; }
+
+      try {
+        const response = await fetch(API_URL + '?token=' + encodeURIComponent(token));
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          showError(data.error || 'Une erreur est survenue.');
+          return;
+        }
+        showReport(data);
+      } catch (e) {
+        showError('Impossible de charger le rapport. Vérifiez votre connexion internet.');
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

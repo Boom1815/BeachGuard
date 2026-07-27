@@ -1,8 +1,14 @@
 // Edge Function: incident-report
-// Page HTML publique et imprimable pour UN incident précis, accessible
-// uniquement via un token signé (voir _shared/report-token.ts) envoyé par
-// email au propriétaire du compte. Aucune authentification Supabase requise
-// côté destinataire : le proche qui reçoit le lien n'a pas besoin de compte.
+// Renvoie en JSON les données d'UN incident précis, accessible uniquement via
+// un token signé (voir _shared/report-token.ts) envoyé par email au
+// propriétaire du compte. Aucune authentification Supabase requise côté
+// destinataire : le proche qui reçoit le lien n'a pas besoin de compte.
+//
+// Renvoie du JSON et non du HTML directement : sur le domaine partagé
+// *.supabase.co (plan gratuit), Supabase force le Content-Type de toute
+// réponse HTML vers text/plain (mesure anti-abus), rendant impossible de
+// servir une vraie page ici. La page imprimable (docs/report.html, servie
+// via GitHub Pages) appelle cette fonction en fetch() et affiche le résultat.
 //
 // Garantie de conception : cette fonction ne lit JAMAIS plus d'un incident —
 // elle n'expose aucune liste, aucune recherche, aucun moyen de parcourir les
@@ -25,55 +31,30 @@ const REPORT_SIGNING_SECRET = Deno.env.get('REPORT_SIGNING_SECRET')!;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-function escapeHtml(str: string): string {
-  const map: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-  return str.replace(/[&<>"']/g, (c) => map[c]);
-}
+// Appelée en fetch() cross-origin depuis GitHub Pages : CORS nécessaire.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-function page(bodyHtml: string): string {
-  return `<!doctype html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BeachGuard — Rapport d'incident</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1424; margin: 0; padding: 24px; min-height: 100vh; box-sizing: border-box; }
-  .sheet { max-width: 700px; margin: 0 auto; background: #fff; color: #16213a; border-radius: 12px; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
-  .field { margin-bottom: 16px; }
-  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 4px; }
-  .value { font-size: 16px; }
-  .value a { color: #1a73e8; }
-  .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
-  .photos img { width: 100%; border-radius: 8px; display: block; }
-  .hint { color: #888; font-size: 14px; font-style: italic; }
-  .print-btn { margin-top: 24px; padding: 10px 20px; background: #1a2540; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
-  .error-wrap { max-width: 480px; margin: 15vh auto; text-align: center; color: #fff; }
-  @media print {
-    body { background: #fff; padding: 0; }
-    .sheet { box-shadow: none; }
-    .print-btn { display: none; }
-  }
-</style>
-</head>
-<body>${bodyHtml}</body>
-</html>`;
-}
-
-function errorPage(message: string, status: number): Response {
-  const html = page(`<div class="error-wrap"><h1>⚠️ ${escapeHtml(message)}</h1></div>`);
-  return new Response(html, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+function jsonResponse(body: Record<string, unknown>, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   const url = new URL(req.url);
   const token = url.searchParams.get('token');
-  if (!token) return errorPage('Lien invalide.', 400);
+  if (!token) return jsonResponse({ ok: false, error: 'Lien invalide.' }, 400);
 
   const payload = await verifyReportToken(token, REPORT_SIGNING_SECRET);
-  if (!payload) return errorPage('Lien invalide ou expiré.', 403);
+  if (!payload) return jsonResponse({ ok: false, error: 'Lien invalide ou expiré.' }, 403);
 
   const { data: incident, error } = await admin
     .from('incidents')
@@ -82,7 +63,7 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (error || !incident) {
-    return errorPage("Aucune donnée disponible pour cet incident (il a peut-être déjà été supprimé).", 404);
+    return jsonResponse({ ok: false, error: "Aucune donnée disponible pour cet incident (il a peut-être déjà été supprimé)." }, 404);
   }
 
   const { data: files } = await admin.storage
@@ -101,35 +82,13 @@ Deno.serve(async (req) => {
 
   const lat = Number(incident.lat);
   const lng = Number(incident.lng);
-  const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
-  const timeLabel = new Date(incident.created_at).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'medium' });
 
-  const photosHtml = photoUrls.length > 0
-    ? photoUrls.map((u) => `<img src="${escapeHtml(u)}" alt="Photo de l'incident">`).join('')
-    : `<p class="hint">Aucune photo disponible — les photos sont automatiquement supprimées 15 jours après l'incident.</p>`;
-
-  const html = page(`
-  <div class="sheet">
-    <h1>🛡️ BeachGuard — Rapport d'incident</h1>
-    <div class="subtitle">Généré automatiquement par l'application BeachGuard</div>
-
-    <div class="field">
-      <div class="label">Horodatage</div>
-      <div class="value">${escapeHtml(timeLabel)}</div>
-    </div>
-
-    <div class="field">
-      <div class="label">Localisation</div>
-      <div class="value"><a href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener">${lat.toFixed(6)}, ${lng.toFixed(6)} — Voir sur Google Maps</a></div>
-    </div>
-
-    <div class="field">
-      <div class="label">Photos</div>
-      <div class="photos">${photosHtml}</div>
-    </div>
-
-    <button class="print-btn" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
-  </div>`);
-
-  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  return jsonResponse({
+    ok: true,
+    timestamp: incident.created_at,
+    lat,
+    lng,
+    maps_link: `https://maps.google.com/?q=${lat},${lng}`,
+    photos: photoUrls,
+  }, 200);
 });

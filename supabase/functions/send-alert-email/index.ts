@@ -29,6 +29,12 @@ const REPORT_SIGNING_SECRET = Deno.env.get('REPORT_SIGNING_SECRET')!;
 // sans photos, plutôt qu'un lien mort.
 const REPORT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
+// Page statique GitHub Pages (docs/report.html) qui affiche le rapport —
+// voir le commentaire plus bas sur pourquoi ce n'est pas directement l'URL
+// de l'Edge Function incident-report.
+const REPORT_PAGE_BASE_URL = Deno.env.get('REPORT_PAGE_BASE_URL')
+  ?? 'https://boom1815.github.io/BeachGuard/report.html';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -66,7 +72,12 @@ Deno.serve(async (req) => {
     let photosLink = 'Photos being uploaded...';
     if (incident_id && typeof incident_id === 'string') {
       const token = await signReportToken(incident_id, REPORT_SIGNING_SECRET, REPORT_TTL_SECONDS);
-      photosLink = `${SUPABASE_URL}/functions/v1/incident-report?token=${token}`;
+      // La page réelle est servie par GitHub Pages (docs/report.html), pas
+      // directement par cette URL Supabase : sur le domaine partagé
+      // *.supabase.co, Content-Type des réponses HTML est forcé à
+      // text/plain (anti-abus), donc l'Edge Function ne peut renvoyer que
+      // du JSON. GitHub Pages appelle cette API et affiche la page.
+      photosLink = `${REPORT_PAGE_BASE_URL}?token=${token}`;
     }
     // Log temporaire pour retrouver facilement le lien de test dans l'onglet
     // "Logs" du dashboard (le corps de réponse JSON n'y est pas affiché).
