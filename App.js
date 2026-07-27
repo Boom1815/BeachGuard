@@ -17,6 +17,7 @@ import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
 import * as Contacts from 'expo-contacts';
 import * as Speech from 'expo-speech';
+import * as Localization from 'expo-localization';
 
 const SUPABASE_URL = 'https://fbhuswayipxafsvbvasz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nmeJNjoW4VbQKchifKnEWQ_iUqAhz9B';
@@ -1083,7 +1084,14 @@ export default function App() {
       if (email2) setAlertEmail2(email2);
       if (sens) setSensitivityValue(parseFloat(sens));
       if (sirenId) { const found = SIRENS.find(s => s.id === parseInt(sirenId)); if (found) setSelectedSiren(found); }
-      if (lang && TRANSLATIONS[lang]) setLanguage(lang);
+      if (lang && TRANSLATIONS[lang]) {
+        setLanguage(lang);
+      } else {
+        // Première ouverture : pas de langue choisie manuellement encore,
+        // on part de la langue de l'appareil si elle est supportée.
+        const deviceLang = Localization.getLocales()[0]?.languageCode;
+        if (deviceLang && TRANSLATIONS[deviceLang]) setLanguage(deviceLang);
+      }
       if (voiceId) setSelectedVoiceId(voiceId);
     } catch (e) {}
   };
