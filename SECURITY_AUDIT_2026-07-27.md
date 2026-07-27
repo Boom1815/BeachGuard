@@ -20,8 +20,8 @@ faire.
 
 | # | Gravité | Titre |
 |---|---|---|
-| 1 | 🔴 Critique | `send-alert-email` ne vérifie pas la propriété de `incident_id` |
-| 2 | 🔴 Critique | `send-alert-email` accepte n'importe quel `to_email` (relais ouvert) |
+| 1 | 🔴 Critique | ✅ Corrigé (27/07) — `send-alert-email` ne vérifiait pas la propriété de `incident_id` |
+| 2 | 🔴 Critique | ✅ Corrigé partiellement (27/07) — `send-alert-email` acceptait n'importe quel `to_email` (format validé ; limitation de débit toujours à faire) |
 | 3 | 🟠 Important | Policies RLS de la table `incidents` non versionnées / non vérifiables |
 | 4 | 🟠 Important | `incident_id` prévisible (horodatage, pas aléatoire) |
 | 5 | 🟠 Important | Auto-liaison de contacts sans consentement du contact |
@@ -65,6 +65,15 @@ l'incident d'un tiers.
 `user.id` de l'appelant authentifié ; refuser (403) si ça ne correspond
 pas ou si l'incident n'existe pas.
 
+**✅ Corrigé le 27/07/2026** : `send-alert-email` interroge maintenant
+`incidents` (via `service_role`, pour ne pas dépendre de la correction des
+policies RLS non vérifiées — voir finding #3) et compare `user_id` à
+l'appelant authentifié avant de signer un token. Si l'incident n'existe
+pas ou appartient à quelqu'un d'autre, aucun lien n'est émis (échec fermé)
+— l'email part quand même, avec le message par défaut. La prévisibilité de
+l'`incident_id` (finding #4) n'est plus exploitable pour ce vecteur
+puisque deviner un ID ne suffit plus.
+
 ---
 
 ## 🔴 2 — `send-alert-email` accepte n'importe quel `to_email`
@@ -89,6 +98,14 @@ un intervalle minimum), et/ou n'autoriser l'envoi que vers des adresses que
 l'app a préalablement synchronisées côté serveur (ce qui demanderait de
 stocker `alertEmail`/`alertEmail2` dans `profiles` au lieu de
 `AsyncStorage` uniquement).
+
+**✅ Partiellement corrigé le 27/07/2026** : le format de `to_email` est
+désormais validé côté serveur (regex email basique), la fonction refuse
+(400) toute valeur mal formée. **Non fait** : la limitation de débit et la
+restriction aux adresses pré-enregistrées ("idéalement") — un compte
+authentifié peut toujours envoyer un nombre illimité d'emails vers
+n'importe quelle adresse valide. À traiter séparément si ce risque reste
+jugé important (probable avant un lancement public réel).
 
 ---
 
@@ -291,20 +308,25 @@ depuis l'interface GitHub par vous.
 
 ---
 
-## Ce qui a été corrigé automatiquement dans cette session
+## Ce qui a été corrigé
 
-Rien au niveau du code applicatif — conformément à la consigne, aucun
-correctif de sécurité n'a été appliqué sans validation préalable.
+**Sur validation explicite ("Corrige"), le 27/07/2026** :
+- **Finding #1** (critique) : corrigé entièrement — vérification de
+  propriété ajoutée dans `send-alert-email` avant de signer un lien de
+  rapport.
+- **Finding #2** (critique) : corrigé partiellement — format de
+  `to_email` validé côté serveur. La limitation de débit (partie
+  "idéalement" de la recommandation) n'a pas été implémentée, à décider
+  séparément.
 
-Seul ajout non-invasif effectué directement : `.github/dependabot.yml`
-(fichier de configuration pure, pas de changement de comportement de
-l'app).
+Ajout non-invasif fait sans validation préalable (config pure, aucun
+changement de comportement) : `.github/dependabot.yml`.
 
-## Ce qui nécessite votre décision
+## Ce qui nécessite encore votre décision
 
-Tous les findings 1 à 17 ci-dessus. En particulier, l'ordre de priorité
-recommandé serait : **1 et 2 en premier** (exploitables aujourd'hui, avec
-un impact direct sur la vie privée d'utilisateurs réels), puis 3, 8, 9
-(vérifications/corrections rapides), puis 4, 5 (changements plus
-structurels), puis 6, 7 (nécessitent un avis juridique, pas juste du
-code), puis le reste (mineurs, à faire au fil de l'eau).
+Findings 3 à 17, plus la partie non traitée du finding #2 (limitation de
+débit / restriction aux emails pré-enregistrés). Ordre de priorité
+recommandé : **3, 8, 9 d'abord** (vérifications/corrections rapides), puis
+**4, 5** (changements plus structurels), puis **6, 7** (nécessitent un
+avis juridique, pas juste du code), puis le reste (mineurs, au fil de
+l'eau).

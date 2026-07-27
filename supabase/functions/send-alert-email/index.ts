@@ -22,7 +22,14 @@ const LOGO_URL = Deno.env.get('LOGO_URL')
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const REPORT_SIGNING_SECRET = Deno.env.get('REPORT_SIGNING_SECRET')!;
+
+// Utilisé uniquement pour vérifier la propriété d'un incident avant de
+// signer un lien de rapport — jamais pour autre chose, jamais exposé.
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Le rapport reste consultable un peu au-delà des 15 jours de rétention des
 // photos (cleanup-old-incidents) : la page affiche alors position + horaire
@@ -62,8 +69,8 @@ Deno.serve(async (req) => {
     }
 
     const { to_email, maps_link, time, incident_id } = await req.json();
-    if (!to_email || typeof to_email !== 'string') {
-      return new Response(JSON.stringify({ error: 'to_email is required' }), {
+    if (!to_email || typeof to_email !== 'string' || !EMAIL_REGEX.test(to_email)) {
+      return new Response(JSON.stringify({ error: 'A valid to_email is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -71,17 +78,31 @@ Deno.serve(async (req) => {
 
     let photosLink = 'Photos being uploaded...';
     if (incident_id && typeof incident_id === 'string') {
-      const token = await signReportToken(incident_id, REPORT_SIGNING_SECRET, REPORT_TTL_SECONDS);
-      // La page réelle est servie par GitHub Pages (docs/report.html), pas
-      // directement par cette URL Supabase : sur le domaine partagé
-      // *.supabase.co, Content-Type des réponses HTML est forcé à
-      // text/plain (anti-abus), donc l'Edge Function ne peut renvoyer que
-      // du JSON. GitHub Pages appelle cette API et affiche la page.
-      photosLink = `${REPORT_PAGE_BASE_URL}?token=${token}`;
+      // Vérification de propriété : on ne signe un lien de rapport que si
+      // l'incident appartient bien à l'appelant authentifié — sans ce
+      // contrôle, n'importe quel compte pouvait obtenir un lien valide vers
+      // la position GPS et les photos d'un incident appartenant à un autre
+      // utilisateur (faille corrigée le 27/07/2026, voir SECURITY_AUDIT).
+      const { data: incident } = await admin
+        .from('incidents')
+        .select('user_id')
+        .eq('id', incident_id)
+        .maybeSingle();
+
+      if (incident && incident.user_id === user.id) {
+        const token = await signReportToken(incident_id, REPORT_SIGNING_SECRET, REPORT_TTL_SECONDS);
+        // La page réelle est servie par GitHub Pages (docs/report.html), pas
+        // directement par cette URL Supabase : sur le domaine partagé
+        // *.supabase.co, Content-Type des réponses HTML est forcé à
+        // text/plain (anti-abus), donc l'Edge Function ne peut renvoyer que
+        // du JSON. GitHub Pages appelle cette API et affiche la page.
+        photosLink = `${REPORT_PAGE_BASE_URL}?token=${token}`;
+      }
+      // Incident inexistant ou appartenant à un autre utilisateur : on
+      // n'émet aucun lien plutôt que d'échouer bruyamment — l'email part
+      // quand même, avec le message par défaut, sans exposer de données
+      // d'un tiers (échec fermé).
     }
-    // Log temporaire pour retrouver facilement le lien de test dans l'onglet
-    // "Logs" du dashboard (le corps de réponse JSON n'y est pas affiché).
-    console.log('report_link:', photosLink);
 
     const emailjsResponse = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
       method: 'POST',
