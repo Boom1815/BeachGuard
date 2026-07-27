@@ -142,6 +142,8 @@ Download BeachGuard Free: https://beachguard.app
 Stay safe!`,
     sirenNames: ['Piezo Alarm', 'Warning Loop', 'Facility Siren', 'Reverb Warning', 'Fire Truck', 'Police Siren', 'Police Siren US', 'Burglar Alarm', 'Sci-Fi Alert', 'Signal Alert', 'Club Alarm', 'Police Operation'],
     deterrentMessage: 'This phone is protected and being tracked. Put it down now.',
+    sectionVoice: 'DETERRENT VOICE',
+    noVoicesFound: 'No voices found for this language on this device.',
   },
   pt: {
     activateLabel: 'Deslize para ATIVAR',
@@ -224,6 +226,8 @@ Descarregue o BeachGuard Free: https://beachguard.app
 Mantenha-se seguro!`,
     sirenNames: ['Alarme Piezo', 'Alarme em ciclo', 'Sirene de instalação', 'Alerta com reverberação', 'Camião de bombeiros', 'Sirene da polícia', 'Sirene da polícia EUA', 'Alarme antirroubo', 'Alerta de ficção científica', 'Sinal de alerta', 'Alarme de discoteca', 'Operação policial'],
     deterrentMessage: 'Este telemóvel está protegido e a ser localizado. Larga-o já.',
+    sectionVoice: 'VOZ DE DISSUASÃO',
+    noVoicesFound: 'Nenhuma voz encontrada para este idioma neste aparelho.',
   },
   es: {
     activateLabel: 'Desliza para ACTIVAR',
@@ -306,6 +310,8 @@ Descarga BeachGuard Free: https://beachguard.app
 ¡Mantente a salvo!`,
     sirenNames: ['Alarma Piezo', 'Alarma en bucle', 'Sirena de instalación', 'Alerta con reverberación', 'Camión de bomberos', 'Sirena de policía', 'Sirena de policía US', 'Alarma antirrobo', 'Alerta de ciencia ficción', 'Señal de alerta', 'Alarma de discoteca', 'Operación policial'],
     deterrentMessage: 'Este teléfono está protegido y localizado. Suéltalo ahora mismo.',
+    sectionVoice: 'VOZ DISUASORIA',
+    noVoicesFound: 'No se encontraron voces para este idioma en este dispositivo.',
   },
   fr: {
     activateLabel: 'Glissez pour ACTIVER',
@@ -388,6 +394,8 @@ Téléchargez BeachGuard Free : https://beachguard.app
 Restez en sécurité !`,
     sirenNames: ['Alarme Piezo', 'Alarme en boucle', "Sirène d'installation", 'Alerte avec réverbération', 'Camion de pompiers', 'Sirène de police', 'Sirène de police US', 'Alarme anti-effraction', 'Alerte science-fiction', "Signal d'alerte", 'Alarme de boîte de nuit', 'Opération de police'],
     deterrentMessage: 'Ce téléphone est protégé et localisé. Reposez-le immédiatement.',
+    sectionVoice: 'VOIX DISSUASIVE',
+    noVoicesFound: 'Aucune voix trouvée pour cette langue sur cet appareil.',
   },
   de: {
     activateLabel: 'Wischen zum AKTIVIEREN',
@@ -470,6 +478,8 @@ Lade BeachGuard Free herunter: https://beachguard.app
 Bleib sicher!`,
     sirenNames: ['Piezo-Alarm', 'Warnschleife', 'Anlagensirene', 'Hall-Warnung', 'Feuerwehrsirene', 'Polizeisirene', 'US-Polizeisirene', 'Einbruchalarm', 'Sci-Fi-Alarm', 'Signalton', 'Club-Alarm', 'Polizeieinsatz'],
     deterrentMessage: 'Dieses Telefon ist geschützt und wird geortet. Leg es sofort zurück.',
+    sectionVoice: 'ABSCHRECKUNGSSTIMME',
+    noVoicesFound: 'Keine Stimmen für diese Sprache auf diesem Gerät gefunden.',
   },
   nl: {
     activateLabel: 'Schuif om te ACTIVEREN',
@@ -552,6 +562,8 @@ Download BeachGuard Free: https://beachguard.app
 Blijf veilig!`,
     sirenNames: ['Piëzo-alarm', 'Waarschuwingslus', 'Faciliteitssirene', 'Galm-waarschuwing', 'Brandweersirene', 'Politiesirene', 'Politiesirene VS', 'Inbraakalarm', 'Sci-fi-alarm', 'Signaalalarm', 'Clubalarm', 'Politieoperatie'],
     deterrentMessage: 'Deze telefoon is beveiligd en wordt gevolgd. Leg hem nu meteen neer.',
+    sectionVoice: 'AFSCHRIKSTEM',
+    noVoicesFound: 'Geen stemmen gevonden voor deze taal op dit apparaat.',
   },
 };
 
@@ -890,6 +902,8 @@ export default function App() {
   const [alarmActive, setAlarmActive] = useState(false);
   const [counting, setCounting] = useState(false);
   const [selectedSiren, setSelectedSiren] = useState(SIRENS[0]);
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [selectedVoiceId, setSelectedVoiceId] = useState(null);
   const [sensitivityValue, setSensitivityValue] = useState(2.0);
   const [showSettings, setShowSettings] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
@@ -950,6 +964,10 @@ export default function App() {
   }, [session]);
 
   useEffect(() => {
+    loadVoicesForLanguage(language);
+  }, [language]);
+
+  useEffect(() => {
     if (!armed) return;
     const sub = Accelerometer.addListener(({ x, y, z }) => {
       const total = Math.sqrt(x * x + y * y + z * z);
@@ -966,12 +984,26 @@ export default function App() {
       const sens = await AsyncStorage.getItem('sensitivityValue');
       const sirenId = await AsyncStorage.getItem('selectedSirenId');
       const lang = await AsyncStorage.getItem('appLanguage');
+      const voiceId = await AsyncStorage.getItem('selectedVoiceId');
       if (email) setAlertEmail(email);
       if (email2) setAlertEmail2(email2);
       if (sens) setSensitivityValue(parseFloat(sens));
       if (sirenId) { const found = SIRENS.find(s => s.id === parseInt(sirenId)); if (found) setSelectedSiren(found); }
       if (lang && TRANSLATIONS[lang]) setLanguage(lang);
+      if (voiceId) setSelectedVoiceId(voiceId);
     } catch (e) {}
+  };
+
+  const loadVoicesForLanguage = async (lang) => {
+    try {
+      const all = await Speech.getAvailableVoicesAsync();
+      const localePrefix = (SPEECH_LOCALES[lang] || 'en-US').split('-')[0];
+      const forLang = all.filter(v => v.language && v.language.toLowerCase().startsWith(localePrefix));
+      const maleVoices = forLang.filter(v => v.gender === 'male');
+      setAvailableVoices(maleVoices.length > 0 ? maleVoices : forLang);
+    } catch (e) {
+      setAvailableVoices([]);
+    }
   };
 
   const loadContacts = async () => {
@@ -1043,6 +1075,7 @@ export default function App() {
       await AsyncStorage.setItem('sensitivityValue', String(sensitivityValue));
       await AsyncStorage.setItem('selectedSirenId', String(selectedSiren.id));
       await AsyncStorage.setItem('appLanguage', language);
+      await AsyncStorage.setItem('selectedVoiceId', selectedVoiceId || '');
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     } catch (e) {}
@@ -1074,13 +1107,22 @@ export default function App() {
 
   const speakDeterrentMessage = () => {
     try {
-      console.log('speakDeterrentMessage', language, t.deterrentMessage);
+      const voiceForLang = selectedVoiceId && availableVoices.some(v => v.identifier === selectedVoiceId)
+        ? selectedVoiceId
+        : undefined;
       Speech.speak(t.deterrentMessage, {
         language: SPEECH_LOCALES[language] || 'en-US',
+        voice: voiceForLang,
         rate: 0.95,
-        onError: (e) => console.log('Speech onError:', e),
       });
-    } catch (e) { console.log('Speech error:', e); }
+    } catch (e) {}
+  };
+
+  const previewVoice = (voice) => {
+    try {
+      Speech.stop();
+      Speech.speak(t.deterrentMessage, { language: voice.language, voice: voice.identifier, rate: 0.95 });
+    } catch (e) {}
   };
 
   const sendSingleEmail = async (toEmail, mapsLink, time, photosLink) => {
@@ -1434,6 +1476,23 @@ export default function App() {
                     <Text style={s.sirenText}>{t.sirenNames[siren.id - 1]}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.previewBtn} onPress={() => previewSiren(siren)}>
+                    <Text style={s.previewText}>{t.listenBtn}</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+
+            <Text style={s.sectionTitle}>{t.sectionVoice}</Text>
+            {availableVoices.length === 0 && <Text style={s.inputHint}>{t.noVoicesFound}</Text>}
+            {availableVoices.map(voice => {
+              const selected = selectedVoiceId === voice.identifier;
+              return (
+                <View key={voice.identifier} style={s.sirenRow}>
+                  <TouchableOpacity style={[s.sirenItem, selected && s.sirenActive]} onPress={() => setSelectedVoiceId(voice.identifier)}>
+                    <Text style={[s.sirenCheck, { opacity: selected ? 1 : 0 }]}>✓</Text>
+                    <Text style={s.sirenText}>{voice.name}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.previewBtn} onPress={() => previewVoice(voice)}>
                     <Text style={s.previewText}>{t.listenBtn}</Text>
                   </TouchableOpacity>
                 </View>
