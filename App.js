@@ -918,6 +918,8 @@ export default function App() {
   const [selectedSiren, setSelectedSiren] = useState(SIRENS[0]);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState(null);
+  const [sirenPickerOpen, setSirenPickerOpen] = useState(false);
+  const [voicePickerOpen, setVoicePickerOpen] = useState(false);
   const [sensitivityValue, setSensitivityValue] = useState(2.0);
   const [showSettings, setShowSettings] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
@@ -1484,11 +1486,20 @@ export default function App() {
             </View>
 
             <Text style={s.sectionTitle}>{t.sectionSound}</Text>
-            {SIRENS.map(siren => {
+            <View style={s.sirenRow}>
+              <TouchableOpacity style={[s.sirenItem, s.sirenActive]} onPress={() => setSirenPickerOpen(v => !v)}>
+                <Text style={s.sirenCheck}>{sirenPickerOpen ? '▲' : '▼'}</Text>
+                <Text style={s.sirenText}>{t.sirenNames[selectedSiren.id - 1]}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.previewBtn} onPress={() => previewSiren(selectedSiren)}>
+                <Text style={s.previewText}>{t.listenBtn}</Text>
+              </TouchableOpacity>
+            </View>
+            {sirenPickerOpen && SIRENS.map(siren => {
               const selected = selectedSiren.id === siren.id;
               return (
                 <View key={siren.id} style={s.sirenRow}>
-                  <TouchableOpacity style={[s.sirenItem, selected && s.sirenActive]} onPress={() => setSelectedSiren(siren)}>
+                  <TouchableOpacity style={[s.sirenItem, selected && s.sirenActive]} onPress={() => { setSelectedSiren(siren); setSirenPickerOpen(false); }}>
                     <Text style={[s.sirenCheck, { opacity: selected ? 1 : 0 }]}>✓</Text>
                     <Text style={s.sirenText}>{t.sirenNames[siren.id - 1]}</Text>
                   </TouchableOpacity>
@@ -1501,20 +1512,36 @@ export default function App() {
 
             <Text style={s.sectionTitle}>{t.sectionVoice}</Text>
             {availableVoices.length === 0 && <Text style={s.inputHint}>{t.noVoicesFound}</Text>}
-            {availableVoices.map(voice => {
-              const selected = selectedVoiceId === voice.identifier;
+            {availableVoices.length > 0 && (() => {
+              const currentVoice = availableVoices.find(v => v.identifier === selectedVoiceId) || availableVoices[0];
               return (
-                <View key={voice.identifier} style={s.sirenRow}>
-                  <TouchableOpacity style={[s.sirenItem, selected && s.sirenActive]} onPress={() => setSelectedVoiceId(voice.identifier)}>
-                    <Text style={[s.sirenCheck, { opacity: selected ? 1 : 0 }]}>✓</Text>
-                    <Text style={s.sirenText}>{voice.name}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={s.previewBtn} onPress={() => previewVoice(voice)}>
-                    <Text style={s.previewText}>{t.listenBtn}</Text>
-                  </TouchableOpacity>
-                </View>
+                <>
+                  <View style={s.sirenRow}>
+                    <TouchableOpacity style={[s.sirenItem, s.sirenActive]} onPress={() => setVoicePickerOpen(v => !v)}>
+                      <Text style={s.sirenCheck}>{voicePickerOpen ? '▲' : '▼'}</Text>
+                      <Text style={s.sirenText}>{currentVoice.name}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.previewBtn} onPress={() => previewVoice(currentVoice)}>
+                      <Text style={s.previewText}>{t.listenBtn}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {voicePickerOpen && availableVoices.map(voice => {
+                    const selected = currentVoice.identifier === voice.identifier;
+                    return (
+                      <View key={voice.identifier} style={s.sirenRow}>
+                        <TouchableOpacity style={[s.sirenItem, selected && s.sirenActive]} onPress={() => { setSelectedVoiceId(voice.identifier); setVoicePickerOpen(false); }}>
+                          <Text style={[s.sirenCheck, { opacity: selected ? 1 : 0 }]}>✓</Text>
+                          <Text style={s.sirenText}>{voice.name}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={s.previewBtn} onPress={() => previewVoice(voice)}>
+                          <Text style={s.previewText}>{t.listenBtn}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </>
               );
-            })}
+            })()}
 
             <TouchableOpacity style={s.saveBtn} onPress={saveSettings}>
               <Text style={s.saveText}>{settingsSaved ? t.savedBtn : t.saveBtn}</Text>
