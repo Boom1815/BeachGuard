@@ -109,6 +109,8 @@ const TRANSLATIONS = {
     photoConsentTitle: 'Before activating',
     photoConsentText: 'Once activated, this feature automatically takes a photo every 30 seconds for 5 minutes using the front camera, without notifying the person being photographed — including in public places. By activating this feature, you assume full responsibility for its use and for complying with the laws of your country. BeachGuard does not access any of these photos.',
     photoConsentBtn: 'I understand and agree',
+    sectionPhotoConsent: 'PHOTO CONSENT',
+    photoConsentAcceptedLabel: 'Accepted on',
     countdownLabel: 'seconds to unlock',
     settingsTitle: 'Settings',
     sectionContacts: 'ALERT CONTACTS',
@@ -196,6 +198,8 @@ Stay safe!`,
     photoConsentTitle: 'Antes de ativar',
     photoConsentText: 'Uma vez ativada, esta funcionalidade tira automaticamente uma fotografia a cada 30 segundos durante 5 minutos, através da câmara frontal, sem que a pessoa fotografada seja avisada — incluindo na via pública. Ao ativar esta funcionalidade, assume total responsabilidade pela sua utilização e pelo cumprimento da legislação do seu país. A BeachGuard não tem acesso a nenhuma destas fotografias.',
     photoConsentBtn: 'Compreendo e aceito',
+    sectionPhotoConsent: 'CONSENTIMENTO DE FOTO',
+    photoConsentAcceptedLabel: 'Aceite em',
     countdownLabel: 'segundos até desbloquear',
     settingsTitle: 'Definições',
     sectionContacts: 'CONTACTOS DE ALERTA',
@@ -283,6 +287,8 @@ Mantenha-se seguro!`,
     photoConsentTitle: 'Antes de activar',
     photoConsentText: 'Una vez activada, esta función toma automáticamente una fotografía cada 30 segundos durante 5 minutos mediante la cámara frontal, sin avisar a la persona fotografiada — incluso en la vía pública. Al activar esta función, asumes la responsabilidad total de su uso y del cumplimiento de la legislación de tu país. BeachGuard no accede a ninguna de estas fotografías.',
     photoConsentBtn: 'Entiendo y acepto',
+    sectionPhotoConsent: 'CONSENTIMIENTO DE FOTO',
+    photoConsentAcceptedLabel: 'Aceptado el',
     countdownLabel: 'segundos para desbloquear',
     settingsTitle: 'Ajustes',
     sectionContacts: 'CONTACTOS DE ALERTA',
@@ -370,6 +376,8 @@ Descarga BeachGuard Free: https://beachguard.app
     photoConsentTitle: "Avant d'activer",
     photoConsentText: "Une fois activée, cette fonction photographie automatiquement toutes les 30 secondes pendant 5 minutes via la caméra avant, sans que la personne photographiée en soit avertie — y compris sur la voie publique. En activant cette fonction, vous assumez l'entière responsabilité de son usage et de sa conformité avec la législation de votre pays. BeachGuard n'accède à aucune de ces photos.",
     photoConsentBtn: "J'ai compris et j'accepte",
+    sectionPhotoConsent: 'CONSENTEMENT PHOTO',
+    photoConsentAcceptedLabel: 'Accepté le',
     countdownLabel: 'secondes avant déverrouillage',
     settingsTitle: 'Réglages',
     sectionContacts: "CONTACTS D'ALERTE",
@@ -457,6 +465,8 @@ Restez en sécurité !`,
     photoConsentTitle: 'Vor der Aktivierung',
     photoConsentText: 'Nach der Aktivierung nimmt diese Funktion automatisch alle 30 Sekunden für 5 Minuten ein Foto über die Frontkamera auf, ohne dass die fotografierte Person darüber informiert wird — auch im öffentlichen Raum. Mit der Aktivierung dieser Funktion übernehmen Sie die volle Verantwortung für deren Nutzung und für die Einhaltung der Gesetze Ihres Landes. BeachGuard hat keinen Zugriff auf diese Fotos.',
     photoConsentBtn: 'Verstanden und akzeptiert',
+    sectionPhotoConsent: 'FOTO-EINWILLIGUNG',
+    photoConsentAcceptedLabel: 'Akzeptiert am',
     countdownLabel: 'Sekunden bis zur Entsperrung',
     settingsTitle: 'Einstellungen',
     sectionContacts: 'ALARMKONTAKTE',
@@ -544,6 +554,8 @@ Bleib sicher!`,
     photoConsentTitle: 'Voor het activeren',
     photoConsentText: "Eenmaal geactiveerd, maakt deze functie automatisch elke 30 seconden gedurende 5 minuten een foto via de frontcamera, zonder dat de gefotografeerde persoon hiervan op de hoogte wordt gebracht — ook op de openbare weg. Door deze functie te activeren, aanvaardt u de volledige verantwoordelijkheid voor het gebruik ervan en voor de naleving van de wetgeving van uw land. BeachGuard heeft geen toegang tot deze foto's.",
     photoConsentBtn: 'Ik begrijp het en ga akkoord',
+    sectionPhotoConsent: 'FOTOTOESTEMMING',
+    photoConsentAcceptedLabel: 'Geaccepteerd op',
     countdownLabel: 'seconden tot ontgrendeling',
     settingsTitle: 'Instellingen',
     sectionContacts: 'ALARMCONTACTEN',
@@ -988,6 +1000,7 @@ export default function App() {
   const [noPasscode, setNoPasscode] = useState(false);
   // null = pas encore vérifié, false = refusé/non répondu, true = accepté
   const [photoConsentGiven, setPhotoConsentGiven] = useState(null);
+  const [photoConsentDate, setPhotoConsentDate] = useState(null);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
   const countdownRef = useRef(null);
@@ -1042,6 +1055,7 @@ export default function App() {
           .eq('id', session.user.id)
           .maybeSingle();
         setPhotoConsentGiven(!!data?.photo_consent_accepted_at);
+        setPhotoConsentDate(data?.photo_consent_accepted_at || null);
       } catch (e) {
         setPhotoConsentGiven(false);
       }
@@ -1050,10 +1064,12 @@ export default function App() {
 
   const acceptPhotoConsent = async () => {
     try {
+      const now = new Date().toISOString();
       await supabase
         .from('profiles')
-        .update({ photo_consent_accepted_at: new Date().toISOString() })
+        .update({ photo_consent_accepted_at: now })
         .eq('id', session.user.id);
+      setPhotoConsentDate(now);
       setPhotoConsentGiven(true);
     } catch (e) {}
   };
@@ -1646,6 +1662,16 @@ export default function App() {
                 </>
               );
             })()}
+
+            {photoConsentDate && (
+              <>
+                <Text style={s.sectionTitle}>{t.sectionPhotoConsent}</Text>
+                <Text style={s.inputHint}>
+                  {t.photoConsentAcceptedLabel} {new Date(photoConsentDate).toLocaleString()}
+                </Text>
+                <Text style={[s.inputHint, { marginTop: 6 }]}>{t.photoConsentText}</Text>
+              </>
+            )}
 
             <TouchableOpacity style={s.saveBtn} onPress={saveSettings}>
               <Text style={s.saveText}>{settingsSaved ? t.savedBtn : t.saveBtn}</Text>
