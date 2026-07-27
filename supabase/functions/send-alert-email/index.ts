@@ -90,7 +90,11 @@ Deno.serve(async (req) => {
     });
 
     const bodyText = await emailjsResponse.text();
-    return new Response(JSON.stringify({ status: emailjsResponse.status, body: bodyText }), {
+    // report_link exposé dans la réponse technique (visible dans Dashboard →
+    // Edge Functions → Invocations) pour pouvoir vérifier/tester la page de
+    // rapport indépendamment du succès de l'envoi EmailJS (ex: quota atteint).
+    // L'app mobile ignore déjà ce champ aujourd'hui — ajout sans risque.
+    return new Response(JSON.stringify({ status: emailjsResponse.status, body: bodyText, report_link: photosLink }), {
       status: emailjsResponse.ok ? 200 : 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
