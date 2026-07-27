@@ -1336,6 +1336,10 @@ export default function App() {
   if (counting) {
     return (
       <View style={s.darkScreen}>
+        {/* Caméra déjà montée ici (et non seulement sur l'écran alarmActive suivant)
+            pour que cameraRef.current soit prêt avant le tout premier takePhotos(),
+            déclenché dès la fin du compte à rebours. */}
+        <CameraView style={{ width: 0, height: 0 }} ref={cameraRef} facing={facingRef.current} />
         <Text style={s.countdownNum}>{countdown}</Text>
         <Text style={s.countdownLabel}>{t.countdownLabel}</Text>
         <DisarmSlider onDisarm={unlock} label={t.disarmLabel} />
