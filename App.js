@@ -1074,8 +1074,13 @@ export default function App() {
 
   const speakDeterrentMessage = () => {
     try {
-      Speech.speak(t.deterrentMessage, { language: SPEECH_LOCALES[language] || 'en-US', rate: 0.95 });
-    } catch (e) {}
+      console.log('speakDeterrentMessage', language, t.deterrentMessage);
+      Speech.speak(t.deterrentMessage, {
+        language: SPEECH_LOCALES[language] || 'en-US',
+        rate: 0.95,
+        onError: (e) => console.log('Speech onError:', e),
+      });
+    } catch (e) { console.log('Speech error:', e); }
   };
 
   const sendSingleEmail = async (toEmail, mapsLink, time, photosLink) => {
